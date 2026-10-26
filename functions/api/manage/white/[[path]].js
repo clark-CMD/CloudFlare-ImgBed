@@ -15,6 +15,9 @@ export async function onRequest(context) {
     // 组装 CDN URL
     const url = new URL(request.url);
 
+    // DELETE 方法：取消 Raw 分享（ListType 置为 None，恢复默认访问策略）
+    const isCancel = request.method === 'DELETE';
+
     if (params.path) {
       params.path = String(params.path).split(',').join('/');
     }
@@ -28,7 +31,7 @@ export async function onRequest(context) {
     const value = await db.getWithMetadata(params.path);
 
     //change the metadata
-    value.metadata.ListType = "White"
+    value.metadata.ListType = isCancel ? "None" : "White"
     const metadata = cleanPersistedMetadata(value.metadata);
     await db.put(params.path, value.value, {metadata});
     const info = JSON.stringify({ success: true, listType: metadata.ListType });

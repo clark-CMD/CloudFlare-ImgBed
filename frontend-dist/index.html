@@ -93,6 +93,8 @@ svg{display:block}
 .card:hover .kebab{opacity:1}
 .card .kebab:hover{background:var(--bg3)}
 .badge-ch{position:absolute;left:8px;bottom:calc(8px + 40px);background:rgba(0,0,0,.55);color:#fff;font-size:10.5px;padding:2px 7px;border-radius:99px;backdrop-filter:blur(4px)}
+.badge-raw{position:absolute;right:8px;bottom:calc(8px + 40px);background:rgba(16,140,80,.85);color:#fff;font-size:10.5px;padding:2px 7px;border-radius:99px}
+.list .row .fch .raw-tag{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:99px;background:rgba(16,140,80,.15);color:#1f9d63;font-size:10.5px}
 
 /* 列表视图 */
 .list{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
@@ -141,6 +143,11 @@ svg{display:block}
 .up-item.err .bar i{background:var(--danger);width:100%}
 .up-item .copy-link{flex:none;color:var(--accent);font-size:12px}
 .hint{font-size:12px;color:var(--fg3);line-height:1.6;margin-top:10px}
+.chbox{max-height:132px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:4px}
+.chbox label{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:13px;cursor:pointer;border-radius:6px}
+.chbox label:hover{background:var(--bg3)}
+.chbox input{width:auto;accent-color:var(--accent)}
+.ed-text{width:100%;height:55vh;min-height:220px;font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.6;resize:vertical}
 
 /* 设置 */
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);padding:0 20px}
@@ -238,6 +245,10 @@ svg{display:block}
       </button>
     </div>
     <div class="spacer"></div>
+    <button class="btn" id="newBtn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      新建
+    </button>
     <button class="btn primary" id="uploadBtn">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0L7 8m5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
       上传
@@ -293,13 +304,13 @@ svg{display:block}
     <div class="modal-head"><div class="mt">上传文件</div><button class="iconbtn" data-close="uploadModal">✕</button></div>
     <div class="modal-body">
       <div class="field" style="margin-bottom:10px"><label>目标文件夹</label><input id="upFolder" placeholder="留空为根目录，如：photos/2026"></div>
-      <div class="field" style="margin-bottom:10px"><label>上传渠道</label><select id="upChannel"><option value="">自动（默认渠道）</option></select></div>
+      <div class="field" style="margin-bottom:10px"><label>上传渠道（可勾选多个并发上传）</label><div id="upChannelBox" class="chbox"><label style="color:var(--fg3)">渠道配置加载中…</label></div></div>
       <div class="up-zone" id="upZone">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 8px"><path d="M12 15V3m0 0L7 8m5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
         点击选择文件，或将文件拖拽到这里<br><span style="font-size:12px;color:var(--fg3)">支持多选 · 大于 20MB 自动使用分块上传</span>
       </div>
       <div class="up-list hidden" id="upList"></div>
-      <div class="hint">说明：文件将上传到当前配置的存储渠道（如 Telegram），无需数据库；Telegram 渠道单文件受机器人接口限制，超大文件请优先使用 R2 / S3 渠道。</div>
+      <div class="hint">说明：勾选多个渠道时文件将轮询分发并发上传（Telegram 多 Bot 并发可显著提速）；不勾选则使用默认渠道。大于 20MB 自动分块（分块仅限单一渠道）。</div>
     </div>
     <div class="modal-foot">
       <button class="btn" data-close="uploadModal">关闭</button>
@@ -392,6 +403,30 @@ svg{display:block}
   </div>
 </div>
 
+<!-- 新建文件夹弹窗 -->
+<div class="modal-mask hidden" id="newFolderModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mt">新建文件夹</div><button class="iconbtn" data-close="newFolderModal">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>文件夹名称</label><input id="nfName" placeholder="如：notes/2026（可含子路径）"></div>
+      <div class="hint" id="nfHint"></div>
+    </div>
+    <div class="modal-foot"><button class="btn" data-close="newFolderModal">取消</button><button class="btn primary" id="nfConfirmBtn">创建</button></div>
+  </div>
+</div>
+
+<!-- 文本编辑弹窗 -->
+<div class="modal-mask hidden" id="editorModal">
+  <div class="modal wide">
+    <div class="modal-head"><div class="mt" id="edTitle" style="word-break:break-all">编辑文本</div><button class="iconbtn" data-close="editorModal">✕</button></div>
+    <div class="modal-body">
+      <div class="field" id="edNameField" style="margin-bottom:10px"><label>文件名</label><input id="edName" placeholder="如：readme.md"></div>
+      <textarea class="ed-text" id="edText" spellcheck="false" placeholder="输入文本内容…"></textarea>
+    </div>
+    <div class="modal-foot"><button class="btn" data-close="editorModal">取消</button><button class="btn primary" id="edSaveBtn">保存</button></div>
+  </div>
+</div>
+
 <!-- 通用确认弹窗 -->
 <div class="modal-mask hidden" id="confirmModal">
   <div class="modal" style="max-width:400px">
@@ -410,7 +445,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const encId = id => id.split('/').map(encodeURIComponent).join('/');
-const pathParam = id => encodeURIComponent(id.split('/').join(','));
+const pathParam = id => encodeURIComponent(id.split('/').join(',')).replace(/%2C/g, ','); // 逗号在 path 中合法且保持字面，避免后端部分接口"先替换逗号再解码"的顺序问题
 const pubUrl = id => location.origin + '/file/' + encId(id);
 const adminUrl = id => pubUrl(id) + '?from=admin';
 
@@ -612,7 +647,10 @@ async function loadDir(reset){
       size: (r.metadata && Number(r.metadata.FileSizeBytes)) || 0,
       time: (r.metadata && Number(r.metadata.TimeStamp)) || 0,
       channel: (r.metadata && (r.metadata.ChannelName || r.metadata.Channel)) || '',
-    }));
+      channelRaw: (r.metadata && r.metadata.Channel) || '',
+      channelName: (r.metadata && r.metadata.ChannelName) || '',
+      listType: (r.metadata && r.metadata.ListType) || '',
+    })).filter(r => r.id.split('/').pop() !== '.keep'); // 隐藏文件夹占位文件
     state.files = reset ? recs : state.files.concat(recs);
     state.fetched = state.files.length;
     state.totalCount = data.totalCount || 0;
@@ -708,6 +746,7 @@ function renderGrid(folders, files){
       <div class="name" title="${esc(f.fileName)}">${esc(f.fileName)}</div>
       ${sub}
       ${f.channel ? `<span class="badge-ch">${esc(f.channel)}</span>` : ''}
+      ${f.listType === 'White' ? '<span class="badge-raw">🌐 Raw</span>' : ''}
       <button class="kebab" data-menu="${esc(f.id)}">⋮</button>
     </div>`;
   }
@@ -734,7 +773,7 @@ function renderList(folders, files){
       <span class="fmain"><span class="fname" title="${esc(f.id)}">${esc(f.fileName)}</span><span class="fsub">${sub}</span></span>
       <span class="fsize">${fmtSize(f.size)}</span>
       <span class="ftime">${fmtDate(f.time)}</span>
-      <span class="fch">${esc(f.channel || '—')}</span>
+      <span class="fch">${esc(f.channel || '—')}${f.listType === 'White' ? '<span class="raw-tag">Raw</span>' : ''}</span>
       <button class="iconbtn kebab" data-menu="${esc(f.id)}">⋮</button>
     </div>`;
   }
@@ -803,9 +842,16 @@ function openMenu(btn){
       <button data-act="move">移动到…</button><div class="divider"></div>
       <button class="danger" data-act="delete">删除文件夹</button>`;
   } else {
+    const c = rec ? category(rec.fileName, rec.type) : 'other';
+    const canEdit = c === 'text' && (!rec || rec.size < 2 * 1024 * 1024);
+    const canRaw = c === 'text' || c === 'image';
+    const isWhite = rec && rec.listType === 'White';
     h = `<button data-act="preview">预览 / 打开</button>
       <button data-act="download">下载</button>
-      <button data-act="copy">复制链接</button><div class="divider"></div>
+      <button data-act="copy">复制链接</button>`;
+    if (canRaw) h += `<div class="divider"></div><button data-act="raw">${isWhite ? '取消 Raw 分享' : '创建 Raw 分享'}</button>`;
+    if (canEdit) h += `<button data-act="edit">编辑文本</button>`;
+    h += `<div class="divider"></div>
       <button data-act="rename">重命名</button>
       <button data-act="move">移动到…</button><div class="divider"></div>
       <button class="danger" data-act="delete">删除</button>`;
@@ -845,6 +891,8 @@ document.body.addEventListener('click', async e => {
     if (act === 'rename') openRename(id);
     if (act === 'move') openMoveModal([id], false);
     if (act === 'delete') deleteFiles([id]);
+    if (act === 'raw') toggleRaw(id);
+    if (act === 'edit') openEditor(id);
   }
 });
 
@@ -867,6 +915,158 @@ function deleteFolder(path){
     } catch (err) { toast('删除失败：' + err.message, true); }
   }, '删除');
 }
+/* ================= Raw 分享 ================= */
+async function toggleRaw(id){
+  const rec = state.files.find(f => f.id === id);
+  const isWhite = rec && rec.listType === 'White';
+  try {
+    await apiJson('/api/manage/white/' + pathParam(id), { method: isWhite ? 'DELETE' : 'POST' });
+    if (isWhite) {
+      toast('已取消 Raw 分享');
+    } else {
+      const url = pubUrl(id);
+      copyText(url);
+      toast('Raw 分享已创建，公开链接已复制（免密直链）');
+    }
+    // white 接口用 waitUntil 异步更新文件索引，稍等再刷新避免读到旧快照
+    setTimeout(() => loadDir(true), 400);
+  } catch (err) { toast('操作失败：' + err.message, true); }
+}
+
+/* ================= 文本在线编辑 ================= */
+let edCtx = null; // {mode:'edit'|'new', id, fileName, folder, channelRaw, channelName, wasWhite}
+const CH_KEY_MAP = { CloudflareR2:'cfr2', TelegramNew:'telegram', Telegram:'telegram', S3:'s3', Discord:'discord', HuggingFace:'huggingface', WebDAV:'webdav', External:'external' };
+async function openEditor(id){
+  const rec = state.files.find(f => f.id === id);
+  if (!rec) return;
+  if (rec.size >= 2 * 1024 * 1024) { toast('文件超过 2MB，不支持在线编辑', true); return; }
+  $('#edTitle').textContent = '编辑：' + rec.fileName;
+  $('#edNameField').classList.add('hidden');
+  $('#edText').value = '';
+  edCtx = { mode:'edit', id, fileName: rec.fileName, folder: id.includes('/') ? id.slice(0, id.lastIndexOf('/')) : '',
+    channelRaw: rec.channelRaw, channelName: rec.channelName, wasWhite: rec.listType === 'White' };
+  openModal('editorModal');
+  const stage = $('#edText'); stage.value = '加载中…';
+  try {
+    const r = await fetch(adminUrl(id));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    stage.value = await r.text();
+    stage.focus();
+  } catch (err) {
+    stage.value = '';
+    toast('读取文件内容失败：' + err.message, true);
+  }
+}
+function openNewText(){
+  $('#edTitle').textContent = '新建文本文件';
+  $('#edNameField').classList.remove('hidden');
+  $('#edName').value = '';
+  $('#edText').value = '';
+  edCtx = { mode:'new', folder: state.search ? '' : state.dir };
+  openModal('editorModal');
+  setTimeout(() => { $('#edName').focus(); }, 50);
+}
+$('#edSaveBtn').addEventListener('click', async () => {
+  if (!edCtx) return;
+  const btn = $('#edSaveBtn');
+  if (btn.disabled) return;
+  let name, folder, content = $('#edText').value;
+  if (edCtx.mode === 'new') {
+    name = $('#edName').value.trim();
+    if (!name) { toast('请输入文件名', true); return; }
+    if (name.includes('/')) { toast('文件名不能包含 /（可留空文件名后用「移动」调整目录）', true); return; }
+    folder = edCtx.folder;
+  } else {
+    name = edCtx.id.split('/').pop(); // 用真实存储键名覆盖，避免 FileName 展示名与键名不一致时产生新记录
+    folder = edCtx.folder;
+  }
+  btn.disabled = true; btn.textContent = '保存中…';
+  try {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const file = new File([blob], name, { type: 'text/plain' });
+    const fd = new FormData();
+    fd.append('file', file);
+    // 尽量沿用原文件所在渠道，避免编辑后文件在渠道间转移；无原渠道时自动选可用渠道
+    let params = edCtx.channelRaw && CH_KEY_MAP[edCtx.channelRaw]
+      ? '&uploadChannel=' + encodeURIComponent(CH_KEY_MAP[edCtx.channelRaw]) + (edCtx.channelName ? '&channelName=' + encodeURIComponent(edCtx.channelName) : '')
+      : autoChannelParams();
+    if (edCtx.mode === 'edit') {
+      // 上传接口遇重名会自动加 (n) 后缀，无覆盖能力；先删除旧键再用 origin 同名上传，实现真正的覆盖保存
+      try { await api('/api/manage/delete/' + pathParam(edCtx.id), { method: 'DELETE' }); } catch {}
+      params += '&uploadNameType=origin';
+    }
+    await xhrUpload('/upload?uploadFolder=' + encodeURIComponent(folder) + params + '&returnFormat=default', fd, () => {});
+    const newId = folder ? folder + '/' + name : name;
+    // 覆盖上传会重置 FileName 展示名，补 PATCH 恢复；同时恢复原 Raw 分享状态
+    if (edCtx.mode === 'edit' && edCtx.fileName && edCtx.fileName !== name) {
+      try { await apiJson('/api/manage/metadata/' + pathParam(newId), { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ FileName: edCtx.fileName }) }); } catch {}
+    }
+    if (edCtx.mode === 'edit' && edCtx.wasWhite) {
+      try { await apiJson('/api/manage/white/' + pathParam(newId), { method: 'POST' }); toast('已自动恢复 Raw 分享'); } catch {}
+    }
+    toast('保存成功');
+    closeModal('editorModal');
+    edCtx = null;
+    loadDir(true);
+  } catch (err) {
+    toast('保存失败：' + err.message, true);
+  }
+  btn.disabled = false; btn.textContent = '保存';
+});
+
+/* ================= 新建文件夹 ================= */
+function openNewFolder(){
+  $('#nfName').value = '';
+  $('#nfHint').textContent = state.dir ? '将在当前目录「' + state.dir + '」下创建' : '将在根目录下创建';
+  openModal('newFolderModal');
+  if (!state.channels) loadChannels();
+  setTimeout(() => { $('#nfName').focus(); }, 50);
+}
+$('#nfConfirmBtn').addEventListener('click', async () => {
+  let name = $('#nfName').value.trim().replace(/\/+$/, '').replace(/\.{2,}/g, '.').replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+  if (!name) { toast('请输入文件夹名称', true); return; }
+  const btn = $('#nfConfirmBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const full = state.dir ? state.dir + '/' + name : name;
+    // 后端无 mkdir 接口，用 .keep 占位空文件创建目录，列表中自动隐藏；自动选可用渠道（R2 优先）
+    const blob = new Blob([''], { type: 'text/plain' });
+    const file = new File([blob], '.keep', { type: 'text/plain' });
+    const fd = new FormData();
+    fd.append('file', file);
+    if (!state.channels) { try { await loadChannels(); } catch {} }
+    await xhrUpload('/upload?uploadFolder=' + encodeURIComponent(full) + autoChannelParams() + '&returnFormat=default', fd, () => {});
+    toast('文件夹已创建：' + name);
+    closeModal('newFolderModal');
+    loadDir(true);
+  } catch (err) {
+    toast('创建失败（需要一个可用渠道，如 R2 绑定或已配置的 Telegram）：' + err.message, true);
+  }
+  btn.disabled = false;
+});
+
+/* ================= 顶栏「新建」菜单 ================= */
+$('#newBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  closeMenu();
+  menuEl = document.createElement('div');
+  menuEl.className = 'ctxmenu';
+  menuEl.innerHTML = `<button data-new="folder">新建文件夹</button>
+    <button data-new="text">新建文本文件</button>`;
+  document.body.appendChild(menuEl);
+  const r = $('#newBtn').getBoundingClientRect();
+  menuEl.style.left = Math.min(r.left, innerWidth - 184) + 'px';
+  menuEl.style.top = (r.bottom + 4) + 'px';
+});
+document.body.addEventListener('click', e => {
+  const b = e.target.closest('.ctxmenu button[data-new]');
+  if (!b) return;
+  closeMenu();
+  if (b.dataset.new === 'folder') openNewFolder();
+  if (b.dataset.new === 'text') openNewText();
+});
+
 /* 重命名（文件） */
 function openRename(id){
   const dir = id.includes('/') ? id.slice(0, id.lastIndexOf('/')) : '';
@@ -1028,18 +1228,35 @@ async function loadChannels(){
     const ch = await apiJson('/api/channels');
     state.channels = ch;
     const labels = { telegram: 'Telegram', cfr2: 'R2', s3: 'S3', discord: 'Discord', huggingface: 'HuggingFace', webdav: 'WebDAV' };
-    let h = '<option value="">自动（默认渠道）</option>';
+    let h = '';
     for (const key of Object.keys(ch)) {
-      for (const c of ch[key]) h += `<option value="${key}|${esc(c.name)}">${esc(c.name)}（${labels[key] || key}）</option>`;
+      for (const c of ch[key]) h += `<label><input type="checkbox" value="${key}|${esc(c.name)}"> ${esc(c.name)}（${labels[key] || key}）</label>`;
     }
-    $('#upChannel').innerHTML = h;
-  } catch { $('#upChannel').innerHTML = '<option value="">自动（默认渠道）</option>'; }
+    $('#upChannelBox').innerHTML = h || '<label style="color:var(--fg3)">未配置任何渠道，将使用默认渠道</label>';
+  } catch { $('#upChannelBox').innerHTML = '<label style="color:var(--fg3)">渠道配置加载失败，将使用默认渠道</label>'; }
+}
+function selectedChannels(){
+  return $$('#upChannelBox input[type=checkbox]:checked').map(i => i.value);
+}
+function chParams(v){
+  if (!v) return '';
+  const [k, name] = v.split('|');
+  return '&uploadChannel=' + encodeURIComponent(k) + '&channelName=' + encodeURIComponent(name);
+}
+// 自动选一个可用渠道（R2 优先，其次第一个），避免默认渠道不可用导致失败
+function autoChannelParams(){
+  if (!state.channels) return '';
+  const keys = Object.keys(state.channels).filter(k => (state.channels[k] || []).length);
+  if (!keys.length) return '';
+  const pref = keys.includes('cfr2') ? 'cfr2' : keys[0];
+  const c = state.channels[pref][0];
+  return chParams(pref + '|' + c.name);
 }
 function renderUpList(){
   const el = $('#upList');
   el.classList.toggle('hidden', upFiles.length === 0);
   el.innerHTML = upFiles.map((u, i) => {
-    const st = u.status === 'done' ? '✓ 完成' : u.status === 'err' ? esc(u.err || '失败') : u.status === 'uploading' ? (u.pct + '%') : '等待中';
+    const st = u.status === 'done' ? '✓ 完成' + (u.ch ? ' · ' + esc(u.ch) : '') : u.status === 'err' ? esc(u.err || '失败') : u.status === 'uploading' ? ((u.ch ? esc(u.ch) + ' · ' : '') + u.pct + '%') : '等待中';
     return `<div class="up-item ${u.status === 'done' ? 'ok' : u.status === 'err' ? 'err' : ''}">
       <span class="nm" title="${esc(u.file.name)}">${esc(u.file.name)}<span style="color:var(--fg3)"> · ${fmtSize(u.file.size)}</span></span>
       <span class="bar"><i id="upbar-${i}" style="width:${u.pct}%"></i></span>
@@ -1053,15 +1270,11 @@ $('#upList').addEventListener('click', e => {
   if (b) copyText(b.dataset.copy);
 });
 function upProgress(i, pct, status){
+  const u = upFiles[i];
+  if (u) u.pct = pct; // 并发下全量重绘时不丢失进度
   const bar = $('#upbar-' + i), st = $('#upst-' + i);
   if (bar) bar.style.width = pct + '%';
   if (st) st.textContent = status || pct + '%';
-}
-function channelParams(){
-  const v = $('#upChannel').value;
-  if (!v) return '';
-  const [k, name] = v.split('|');
-  return '&uploadChannel=' + encodeURIComponent(k) + '&channelName=' + encodeURIComponent(name);
 }
 /* XMLHttpRequest 上传（带进度） */
 function xhrUpload(url, fd, onPct){
@@ -1126,25 +1339,34 @@ $('#upStartBtn').addEventListener('click', async () => {
   upBusy = true;
   $('#upStartBtn').disabled = true;
   const folder = $('#upFolder').value.trim().replace(/^\/+|\/+$/g, '');
-  const params = channelParams();
-  let ok = 0, fail = 0;
-  for (let i = 0; i < upFiles.length; i++) {
-    const u = upFiles[i];
-    if (u.status === 'done') continue;
-    u.status = 'uploading'; u.pct = 0; renderUpList();
-    try {
-      const src = await uploadOne(u, i, folder, params);
-      u.status = 'done'; u.pct = 100; u.link = src ? (src.startsWith('http') ? src : location.origin + src) : '';
-      ok++;
-    } catch (err) {
-      u.status = 'err'; u.err = (err.message || '上传失败').slice(0, 60); fail++;
-      console.error('上传失败:', err);
+  const chans = selectedChannels(); // [] = 默认渠道
+  // 多渠道并发：worker 数与勾选渠道数一致（上限 4），文件轮询分发到不同渠道
+  const CONC = chans.length > 1 ? Math.min(chans.length, 4) : 1;
+  const queue = upFiles.filter(u => u.status !== 'done');
+  let qi = 0, ci = 0, ok = 0, fail = 0;
+  const take = () => (qi < queue.length ? queue[qi++] : null);
+  const worker = async () => {
+    let u;
+    while ((u = take())) {
+      const i = upFiles.indexOf(u);
+      const ch = chans.length ? chans[ci++ % chans.length] : null;
+      u.ch = ch ? ch.split('|')[1] : '';
+      u.status = 'uploading'; u.pct = 0; renderUpList();
+      try {
+        const src = await uploadOne(u, i, folder, chParams(ch));
+        u.status = 'done'; u.pct = 100; u.link = src ? (src.startsWith('http') ? src : location.origin + src) : '';
+        ok++;
+      } catch (err) {
+        u.status = 'err'; u.err = (err.message || '上传失败').slice(0, 60); fail++;
+        console.error('上传失败:', err);
+      }
+      renderUpList();
     }
-    renderUpList();
-  }
+  };
+  await Promise.all(Array.from({ length: CONC }, worker));
   upBusy = false;
   $('#upStartBtn').disabled = false;
-  toast(`上传完成：${ok} 成功` + (fail ? `，${fail} 失败` : ''), fail > 0);
+  toast(`上传完成：${ok} 成功` + (fail ? `，${fail} 失败` : '') + (chans.length > 1 ? `（${CONC} 路并发）` : ''), fail > 0);
   if (ok) { state.selection.clear(); loadDir(true); }
 });
 
