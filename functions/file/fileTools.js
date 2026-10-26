@@ -62,6 +62,10 @@ export function setCommonHeaders(headers, encodedFileName, fileType, cacheContro
     headers.set('Vary', 'Range');
 
     if (fileType) {
+        // 文本类型缺 charset 时补 utf-8，否则浏览器按 ISO-8859-1 解码 UTF-8 中文会乱码
+        if (/^text\//i.test(fileType) && !/charset/i.test(fileType)) {
+            fileType += '; charset=utf-8';
+        }
         headers.set('Content-Type', fileType);
     }
 
