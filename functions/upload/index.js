@@ -1,5 +1,6 @@
 import { createS3Client } from '../utils/storage/s3Client.js';
 import { userAuthCheck, UnauthorizedResponse } from "../utils/auth/userAuth";
+import { authenticate, AUTH_SCOPE } from "../utils/auth/authCore.js";
 import { fetchUploadConfig, fetchSecurityConfig, fetchPageConfig } from "../utils/sysConfig";
 import {
     createResponse, getUploadIp, getIPAddress, resolveFileExt,
@@ -15,6 +16,17 @@ import { HuggingFaceAPI } from "../utils/storage/huggingfaceAPI";
 import { WebDAVAPI } from "../utils/storage/webdavAPI";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
+
+// 校验上传码是否有效（存在且未过期）
+async function checkUploadCodeValid(env, code) {
+    try {
+        const db = getDatabase(env);
+        const rec = JSON.parse(await db.get('uploadCode:' + code));
+        return !!(rec && (!rec.expiry || rec.expiry > Date.now()));
+    } catch {
+        return false;
+    }
+}
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -33,8 +45,44 @@ export async function onRequest(context) {  // Contents of context object
 
     // 鉴权
     const requiredPermission = 'upload';
-    if (!await userAuthCheck(env, url, request, requiredPermission)) {
+    // 私人网盘模式（管理员已配置）：仅管理员会话/API Token 可上传，或携带有效上传码（扫码上传）
+    // 免登录模式（管理员未配置）：保持原项目公开上传语义
+    const adminCfg = securityConfig.auth.admin;
+    const adminConfigured = !!(String(adminCfg.adminUsername || '').trim() || String(adminCfg.adminPassword || '').trim());
+    let authorized = false;
+    let guestUpload = false;
+    if (adminConfigured) {
+        const adminAuth = await authenticate({ env, request, requiredPermission, authScope: AUTH_SCOPE.ADMIN });
+        authorized = adminAuth.authorized && adminAuth.authType === 'admin';
+        const guestCode = url.searchParams.get('uploadCode');
+        if (!authorized && guestCode && await checkUploadCodeValid(env, guestCode)) {
+            authorized = true;
+            guestUpload = true;
+        }
+    } else {
+        authorized = await userAuthCheck(env, url, request, requiredPermission);
+    }
+    if (!authorized) {
         return UnauthorizedResponse('Unauthorized');
+    }
+    if (guestUpload) {
+        const guestDay = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+        url.searchParams.set('uploadFolder', `他人上传/${guestDay}`);
+        if (!url.searchParams.get('uploadChannel')) {
+            // 后台自动决策：R2 优先（适合大文件），其次 Telegram/S3 等
+            const up = uploadConfig;
+            const pick = (list, key) => (list && list.length) ? [key, list[0].name] : null;
+            const chosen = pick(up?.cfr2?.channels, 'cfr2')
+                || pick(up?.telegram?.channels, 'telegram')
+                || pick(up?.s3?.channels, 's3')
+                || pick(up?.discord?.channels, 'discord')
+                || pick(up?.huggingface?.channels, 'huggingface')
+                || pick(up?.webdav?.channels, 'webdav');
+            if (chosen) {
+                url.searchParams.set('uploadChannel', chosen[0]);
+                url.searchParams.set('channelName', chosen[1]);
+            }
+        }
     }
 
     // 获得上传IP

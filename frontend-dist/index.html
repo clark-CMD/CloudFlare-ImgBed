@@ -50,6 +50,15 @@ svg{display:block}
 .login-note{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--accent-weak);font-size:12.5px;line-height:1.6;color:var(--fg2)}
 .login-note b{color:var(--fg)}
 .login-foot{margin-top:18px;text-align:center;color:var(--fg3);font-size:12px}
+.gup-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:13px}
+.gup-item .nm{flex:1;word-break:break-all}
+.gup-item .st{color:var(--fg3);white-space:nowrap}
+.qr-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:6px 0}
+.qr-box{background:#fff;padding:12px;border-radius:10px;line-height:0}
+.code-chip{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:ui-monospace,Consolas,monospace;font-size:14px;letter-spacing:1px}
+.upcode-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.upcode-row:last-child{border-bottom:none}
+.upcode-row .cd{flex:1;font-family:ui-monospace,Consolas,monospace;font-weight:600}
 
 /* ===== 主界面 ===== */
 #appView{display:flex;flex-direction:column;min-height:100vh}
@@ -231,6 +240,37 @@ svg{display:block}
   </div>
 </div>
 
+<!-- 访客上传视图（扫码/上传码） -->
+<div id="guestView" class="hidden">
+  <div class="login-card">
+    <div class="login-logo"><span class="logo-ico">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </span>文件上传</div>
+    <div class="login-sub" id="gupSub">校验上传码中…</div>
+    <form id="gupCodeForm" class="hidden">
+      <div class="field">
+        <label>上传码</label>
+        <input id="gupCodeInput" placeholder="请输入分享给你的上传码" autocomplete="off">
+      </div>
+      <div class="login-err" id="gupCodeErr"></div>
+      <button class="btn primary" id="gupCodeBtn" style="width:100%;padding:11px" type="submit">进入上传</button>
+    </form>
+    <div id="gupUploadArea" class="hidden">
+      <form id="gupForm">
+        <div class="field">
+          <label>选择文件（可多选）</label>
+          <input type="file" id="gupFileInput" multiple>
+        </div>
+        <button class="btn primary" id="gupStartBtn" style="width:100%;padding:11px" type="submit">开始上传</button>
+      </form>
+      <div class="up-list" id="gupList"></div>
+      <div class="hint">存储通道由系统自动选择，无需手动配置；上传完成后管理员可在网盘中查看。</div>
+    </div>
+    <div class="login-err" id="gupErr"></div>
+    <div class="login-foot"><a href="/" style="color:var(--fg3);text-decoration:none">← 返回主页</a></div>
+  </div>
+</div>
+
 <!-- 主应用 -->
 <div id="appView" class="hidden">
   <header class="topbar">
@@ -310,7 +350,7 @@ svg{display:block}
         点击选择文件，或将文件拖拽到这里<br><span style="font-size:12px;color:var(--fg3)">支持多选 · 大于 20MB 自动使用分块上传</span>
       </div>
       <div class="up-list hidden" id="upList"></div>
-      <div class="hint">说明：勾选多个渠道时文件将轮询分发并发上传（Telegram 多 Bot 并发可显著提速）；不勾选则使用默认渠道。大于 20MB 自动分块（分块仅限单一渠道）。</div>
+      <div class="hint">说明：默认勾选所有渠道并发上传（文件轮询分发）；取消勾选可手动指定。大于 20MB 自动分块（分块仅限单一渠道）。分享上传（上传码）的访客不看到渠道选择，由后台自动决策。</div>
     </div>
     <div class="modal-foot">
       <button class="btn" data-close="uploadModal">关闭</button>
@@ -368,6 +408,7 @@ svg{display:block}
     <div class="tabs">
       <button data-tab="account" class="on">账号</button>
       <button data-tab="channels">上传渠道</button>
+      <button data-tab="upcodes">上传码</button>
     </div>
     <div class="modal-body">
       <div id="tabAccount">
@@ -398,6 +439,40 @@ svg{display:block}
           <div class="hint">R2 渠道通过环境变量 img_r2 绑定；其他渠道可参照原项目文档配置，配置后即可在上传时选用。</div>
         </div>
         <button class="btn primary" id="saveUploadBtn">保存渠道设置</button>
+      </div>
+      <div id="tabUpcodes" class="hidden">
+        <div class="setting-section">
+          <h4>创建上传码（扫码上传）</h4>
+          <div class="row2">
+            <div class="field"><label>上传码（有意义的文本，如 happy2026、recv-files）</label><input id="ucCode" placeholder="2-32 位字母/数字/连字符/下划线"></div>
+            <div class="field"><label>有效期</label><select id="ucTtl"><option value="24">24 小时</option><option value="168">7 天</option><option value="720">30 天</option><option value="1">1 小时</option><option value="0">永久</option></select></div>
+          </div>
+          <button class="btn primary" id="createUcBtn">创建上传码</button>
+          <div class="hint">创建后生成二维码与短链分享给他人，对方扫码或打开短链即可免登录上传；文件自动归档到「他人上传/<日期>」目录，存储渠道由后台自动决策，访客无需也无法选择。</div>
+        </div>
+        <div class="setting-section">
+          <h4>已有上传码</h4>
+          <div id="upCodesList"><div class="hint">加载中…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 二维码弹窗 -->
+<div class="modal-mask hidden" id="qrModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mt">扫码上传</div><button class="iconbtn" data-close="qrModal">✕</button></div>
+    <div class="modal-body">
+      <div class="qr-wrap">
+        <div class="qr-box" id="qrBox"></div>
+        <div style="font-size:13px;color:var(--fg3)">扫码打开，或复制短链/上传码给对方手动输入</div>
+        <div class="code-chip" id="qrLink" style="word-break:break-all;text-align:center"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" id="copyQrLinkBtn">复制短链</button>
+          <button class="btn sm" id="copyQrCodeBtn">复制上传码</button>
+        </div>
+        <div class="hint" id="qrMeta" style="text-align:center"></div>
       </div>
     </div>
   </div>
@@ -579,11 +654,115 @@ const CHUNK_SIZE = 10 * 1024 * 1024;
 unauthorizedHandler = () => { showLogin('登录已过期，请重新登录'); };
 
 async function boot(){
+  // 访客上传模式：短链 ?up=<上传码>，优先于管理员登录流程
+  const upCode = new URLSearchParams(location.search).get('up');
+  if (upCode !== null) { showGuest(upCode.trim()); return; }
   let sc = null;
   try { sc = await apiJson('/api/auth/sessionCheck'); } catch {}
   state.adminConfigured = sc ? !!sc.adminRequired : true;
   if (sc && sc.valid && (sc.authType === 'admin' || !sc.adminRequired)) showApp();
   else showLogin();
+}
+/* ================= 访客上传（扫码/上传码） ================= */
+let gupCode = '';
+async function showGuest(code){
+  $('#appView').classList.add('hidden');
+  $('#loginView').classList.add('hidden');
+  $('#guestView').classList.remove('hidden');
+  $('#gupSub').textContent = '校验上传码中…';
+  if (!code) {
+    // 无参：提供手动输入入口
+    $('#gupSub').textContent = '请输入分享给你的上传码';
+    $('#gupCodeForm').classList.remove('hidden');
+    return;
+  }
+  try {
+    const r = await fetch('/api/public/uploadCodeCheck', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const d = await r.json();
+    if (d.valid) {
+      gupCode = code;
+      $('#gupSub').textContent = '上传码有效' + (d.expiry ? '，有效期至 ' + new Date(d.expiry).toLocaleString() : '');
+      $('#gupCodeForm').classList.add('hidden');
+      $('#gupCodeErr').textContent = '';
+      $('#gupUploadArea').classList.remove('hidden');
+    } else {
+      $('#gupSub').textContent = '上传码无效或已过期';
+      $('#gupCodeForm').classList.remove('hidden');
+      $('#gupCodeErr').textContent = '可重新输入，或联系分享者获取新码';
+    }
+  } catch {
+    $('#gupSub').textContent = '网络错误，请刷新重试';
+  }
+}
+$('#gupCodeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = $('#gupCodeInput').value.trim();
+  if (!code) return;
+  $('#gupCodeErr').textContent = '';
+  // 复用入口逻辑重新校验
+  history.replaceState(null, '', '/?up=' + encodeURIComponent(code));
+  showGuest(code);
+});
+$('#gupForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (gupBusy) return;
+  const files = [...$('#gupFileInput').files];
+  if (!files.length) { toast('请先选择文件', true); return; }
+  gupBusy = true;
+  $('#gupStartBtn').disabled = true;
+  $('#gupErr').textContent = '';
+  let ok = 0, fail = 0;
+  for (const f of files) {
+    const item = document.createElement('div');
+    item.className = 'gup-item';
+    item.innerHTML = `<span class="nm">${esc(f.name)}</span><span class="st">上传中…</span>`;
+    $('#gupList').appendChild(item);
+    const st = item.querySelector('.st');
+    try {
+      await guestUploadFile(f, p => { st.textContent = p > 0 ? p + '%' : '上传中…'; });
+      st.textContent = '✓ 完成';
+      item.classList.add('ok');
+      ok++;
+    } catch (err) {
+      st.textContent = '✗ 失败';
+      item.classList.add('err');
+      fail++;
+    }
+  }
+  gupBusy = false;
+  $('#gupStartBtn').disabled = false;
+  $('#gupFileInput').value = '';
+  $('#gupErr').textContent = `完成：${ok} 成功` + (fail ? `，${fail} 失败` : '') + '。可继续上传，或关闭页面。';
+});
+let gupBusy = false;
+// 访客上传：小文件直传，大文件分块；目录/渠道由后端自动决策，所有请求携带 uploadCode
+async function guestUploadFile(file, onPct){
+  const fd = new FormData();
+  fd.append('file', file);
+  const base = '/upload?uploadCode=' + encodeURIComponent(gupCode);
+  if (file.size <= 20 * 1024 * 1024) {
+    const src = await xhrUpload(base, fd, onPct);
+    return src;
+  }
+  // 分块：init → chunk → merge（渠道由后端确定性决策，会话内一致）
+  const totalChunks = Math.ceil(file.size / (10 * 1024 * 1024));
+  const uploadId = 'gup-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  await apiRaw(base + '&initChunked=true&uploadId=' + uploadId + '&totalChunks=' + totalChunks);
+  for (let i = 0; i < totalChunks; i++) {
+    const blob = file.slice(i * 10 * 1024 * 1024, Math.min((i + 1) * 10 * 1024 * 1024, file.size));
+    const cfd = new FormData();
+    cfd.append('file', blob, file.name + '.part' + i);
+    await xhrUpload(base + '&chunked=true&uploadId=' + uploadId + '&chunkIndex=' + i, cfd, p => onPct(Math.round(((i + p / 100) / totalChunks) * 100)));
+  }
+  return await apiRaw(base + '&chunked=true&merge=true&uploadId=' + uploadId + '&totalChunks=' + totalChunks);
+}
+async function apiRaw(url){
+  const r = await fetch(url, { method: 'POST' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.text();
 }
 function showLogin(msg){
   $('#appView').classList.add('hidden');
@@ -1233,6 +1412,8 @@ async function loadChannels(){
       for (const c of ch[key]) h += `<label><input type="checkbox" value="${key}|${esc(c.name)}"> ${esc(c.name)}（${labels[key] || key}）</label>`;
     }
     $('#upChannelBox').innerHTML = h || '<label style="color:var(--fg3)">未配置任何渠道，将使用默认渠道</label>';
+    // 默认勾选所有渠道（可手动取消；访客扫码上传则完全由后端自动决策，无勾选页）
+    $$('#upChannelBox input[type=checkbox]').forEach(i => i.checked = true);
   } catch { $('#upChannelBox').innerHTML = '<label style="color:var(--fg3)">渠道配置加载失败，将使用默认渠道</label>'; }
 }
 function selectedChannels(){
@@ -1376,7 +1557,87 @@ $$('.tabs button').forEach(b => b.addEventListener('click', () => {
   $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
   $('#tabAccount').classList.toggle('hidden', b.dataset.tab !== 'account');
   $('#tabChannels').classList.toggle('hidden', b.dataset.tab !== 'channels');
+  $('#tabUpcodes').classList.toggle('hidden', b.dataset.tab !== 'upcodes');
+  if (b.dataset.tab === 'upcodes') loadUpCodes();
 }));
+
+/* ================= 上传码（扫码上传） ================= */
+const TTL_TEXT = h => h > 0 ? (h >= 24 ? (h / 24) + ' 天' : h + ' 小时') : '永久';
+async function loadUpCodes(){
+  try {
+    const d = await apiJson('/api/manage/uploadCodes');
+    const codes = d.codes || [];
+    const box = $('#upCodesList');
+    if (!codes.length) { box.innerHTML = '<div class="hint">还没有上传码，创建一个并分享给他人吧。</div>'; return; }
+    box.innerHTML = codes.map(c => {
+      const expired = c.expiry && c.expiry < Date.now();
+      return `<div class="upcode-row">
+        <span class="cd">${esc(c.code)}</span>
+        <span style="color:var(--fg3)">${expired ? '<span style="color:var(--danger)">已过期</span>' : '有效期：' + TTL_TEXT(c.ttlHours) + (c.expiry ? '<br>至 ' + new Date(c.expiry).toLocaleString() : '')}</span>
+        <button class="btn sm" data-uc-qr="${esc(c.code)}" data-uc-ttl="${c.ttlHours}" data-uc-exp="${c.expiry || ''}">二维码</button>
+        <button class="btn danger sm" data-uc-del="${esc(c.code)}">删除</button>
+      </div>`;
+    }).join('');
+  } catch (err) { $('#upCodesList').innerHTML = '<div class="hint">加载失败：' + esc(err.message) + '</div>'; }
+}
+$('#createUcBtn').addEventListener('click', async () => {
+  const code = $('#ucCode').value.trim();
+  const ttlHours = Number($('#ucTtl').value);
+  if (!code) { toast('请输入上传码', true); return; }
+  const btn = $('#createUcBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const d = await apiJson('/api/manage/uploadCodes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, ttlHours }) });
+    if (!d.success) throw new Error(d.message || '创建失败');
+    $('#ucCode').value = '';
+    toast('上传码已创建');
+    await loadUpCodes();
+    showQr(code, ttlHours, d.code.expiry);
+  } catch (err) { toast(err.message, true); }
+  btn.disabled = false;
+});
+$('#upCodesList').addEventListener('click', e => {
+  const qr = e.target.closest('[data-uc-qr]');
+  if (qr) { showQr(qr.dataset.ucQr, Number(qr.dataset.ucTtl), qr.dataset.ucExp ? Number(qr.dataset.ucExp) : 0); return; }
+  const del = e.target.closest('[data-uc-del]');
+  if (del) confirmBox('删除上传码', '删除上传码「' + del.dataset.ucDel + '」？删除后该码立即失效。', async () => {
+    try {
+      await apiJson('/api/manage/uploadCodes?code=' + encodeURIComponent(del.dataset.ucDel), { method: 'DELETE' });
+      toast('已删除');
+      loadUpCodes();
+    } catch (err) { toast('删除失败：' + err.message, true); }
+  });
+});
+let qrCurrent = null;
+function loadQrLib(){
+  return new Promise((res, rej) => {
+    if (window.qrcode) return res();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+async function showQr(code, ttlHours, expiry){
+  qrCurrent = code;
+  const link = location.origin + '/?up=' + encodeURIComponent(code);
+  $('#qrLink').textContent = link;
+  $('#qrMeta').textContent = '上传码：' + code + ' ｜ 有效期：' + TTL_TEXT(ttlHours) + (expiry ? '（至 ' + new Date(expiry).toLocaleString() + '）' : '');
+  $('#qrBox').innerHTML = '<div class="spin" style="margin:20px"></div>';
+  openModal('qrModal');
+  try {
+    await loadQrLib();
+    const q = window.qrcode(0, 'M');
+    q.addData(link);
+    q.make();
+    $('#qrBox').innerHTML = q.createSvgTag({ cellSize: 4, margin: 2 });
+  } catch {
+    $('#qrBox').innerHTML = '<div class="hint" style="padding:16px">二维码库加载失败（无外网？）<br>请直接复制下方短链分享</div>';
+  }
+}
+$('#copyQrLinkBtn').addEventListener('click', () => copyText($('#qrLink').textContent));
+$('#copyQrCodeBtn').addEventListener('click', () => qrCurrent && copyText(qrCurrent));
 let uploadSettings = null;
 async function loadSecurity(){
   try {
