@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>私人网盘</title>
+<title>个人网盘</title>
 <link rel="icon" href="/static/media/logo.png">
 <style>
 :root{
@@ -217,7 +217,7 @@ svg{display:block}
   <div class="login-card">
     <div class="login-logo"><span class="logo-ico">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-.9-8.9 6 6 0 0 0-11.4 2A3.5 3.5 0 0 0 6 19z"/></svg>
-    </span>私人网盘</div>
+    </span>个人网盘</div>
     <div class="login-sub">仅管理员可访问</div>
     <form id="loginForm">
       <div class="field" id="loginUserField">
@@ -276,7 +276,7 @@ svg{display:block}
   <header class="topbar">
     <div class="brand" id="homeBrand"><span class="logo-ico">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-.9-8.9 6 6 0 0 0-11.4 2A3.5 3.5 0 0 0 6 19z"/></svg>
-    </span>私人网盘</div>
+    </span>个人网盘</div>
     <div class="searchbox">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
       <input id="searchInput" placeholder="搜索文件…" enterkeyhint="search">
@@ -1209,18 +1209,13 @@ $('#nfConfirmBtn').addEventListener('click', async () => {
   btn.disabled = true;
   try {
     const full = state.dir ? state.dir + '/' + name : name;
-    // 后端无 mkdir 接口，用 .keep 占位空文件创建目录，列表中自动隐藏；自动选可用渠道（R2 优先）
-    const blob = new Blob([''], { type: 'text/plain' });
-    const file = new File([blob], '.keep', { type: 'text/plain' });
-    const fd = new FormData();
-    fd.append('file', file);
-    if (!state.channels) { try { await loadChannels(); } catch {} }
-    await xhrUpload('/upload?uploadFolder=' + encodeURIComponent(full) + autoChannelParams() + '&returnFormat=default', fd, () => {});
+    // 调用专用 mkdir 接口直接写 KV 占位记录，不依赖任何存储渠道
+    await apiJson('/api/manage/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: full }) });
     toast('文件夹已创建：' + name);
     closeModal('newFolderModal');
     loadDir(true);
   } catch (err) {
-    toast('创建失败（需要一个可用渠道，如 R2 绑定或已配置的 Telegram）：' + err.message, true);
+    toast('创建失败：' + err.message, true);
   }
   btn.disabled = false;
 });
@@ -1278,8 +1273,8 @@ async function renameFolder(path){
   const newPath = parts.length ? parts.join('/') + '/' + newName : newName;
   try {
     const data = await apiJson('/api/manage/list?count=-1&dir=' + encodeURIComponent(path));
-    const ids = (data.files || []).map(f => f.name);
-    if (!ids.length) { toast('文件夹为空，无法重命名（空文件夹无法存在）', true); return; }
+    // .keep 占位不参与重命名：完成后在新目录重建、删除旧占位
+    const ids = (data.files || []).map(f => f.name).filter(id => id.split('/').pop() !== '.keep');
     toast(`正在重命名 ${ids.length} 个文件…`);
     let ok = 0, fail = 0;
     for (const id of ids) {
@@ -1292,6 +1287,11 @@ async function renameFolder(path){
       }
       catch { fail++; }
     }
+    // 迁移占位文件（新目录重建 + 删除旧占位）
+    try {
+      await apiJson('/api/manage/mkdir', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: newPath }) });
+      await apiJson('/api/manage/delete/' + pathParam(path + '/.keep'), { method: 'DELETE' });
+    } catch {}
     toast(`重命名完成：${ok} 成功` + (fail ? `，${fail} 失败` : ''), fail > 0);
     loadDir(true);
   } catch (err) { toast('重命名失败：' + err.message, true); }
