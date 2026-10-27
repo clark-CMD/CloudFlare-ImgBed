@@ -3,7 +3,7 @@
  * 用于 GitHub Actions 部署，从 GitHub Secrets 读取配置
  * 
  * 环境变量：
- *   WORKER_NAME      - Worker 名称（默认 cloudflare-imgbed）
+ *   WORKER_NAME      - Worker 名称（默认 personal-cloud-drive）
  *   D1_DATABASE_ID   - D1 数据库 ID
  *   KV_NAMESPACE_ID  - KV 命名空间 ID
  *   R2_BUCKET_NAME   - R2 存储桶名称
@@ -19,7 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const outputPath = join(__dirname, 'wrangler.toml');
 
 const env = process.env;
-const name = env.WORKER_NAME || 'cloudflare-imgbed';
+const name = env.WORKER_NAME || 'personal-cloud-drive';
 
 // 先验证全部配置，避免错误的 secret 配置被降级成普通变量或被静默跳过。
 const textVars = Object.create(null);

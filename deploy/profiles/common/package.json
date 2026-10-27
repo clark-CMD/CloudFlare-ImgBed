@@ -1,5 +1,5 @@
 {
-  "name": "@cloudflare-imgbed/common",
+  "name": "@personal-cloud-drive/common",
   "private": true,
   "type": "module",
   "dependencies": {

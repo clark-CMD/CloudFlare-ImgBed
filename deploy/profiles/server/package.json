@@ -1,5 +1,5 @@
 {
-  "name": "@cloudflare-imgbed/server",
+  "name": "@personal-cloud-drive/server",
   "private": true,
   "type": "module",
   "dependencies": {

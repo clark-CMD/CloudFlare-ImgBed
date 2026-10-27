@@ -1,4 +1,4 @@
--- CloudFlare ImgBed D1 Database Initialization Script
+-- Personal Cloud Drive D1 Database Initialization Script
 -- 这个脚本用于初始化D1数据库
 
 -- 删除已存在的表（如果需要重新初始化）

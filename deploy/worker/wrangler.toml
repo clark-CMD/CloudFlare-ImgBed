@@ -12,7 +12,7 @@
 # type 默认为 text，secret 会在部署后统一上传，不写入 [vars]。
 # 无需手动编辑。详见 .github/workflows/deploy-worker.yml
 
-name = "cloudflare-imgbed"
+name = "personal-cloud-drive"
 main = "index.js"
 compatibility_date = "2024-08-21"
 # 让 Worker 对自身 zone 的 fetch() 走公网入口，不要直连 origin。
