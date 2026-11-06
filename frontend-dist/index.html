@@ -60,6 +60,19 @@ svg{display:block}
 .upcode-row:last-child{border-bottom:none}
 .upcode-row .cd{flex:1;font-family:ui-monospace,Consolas,monospace;font-weight:600}
 
+/* ===== 分享预览页 ===== */
+#shareView{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;background:linear-gradient(160deg,var(--bg) 0%,var(--bg3) 100%)}
+.share-card{width:100%;max-width:640px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow2);padding:32px 28px 24px}
+.share-files{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.share-file{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--bg2);transition:background .15s}
+.share-file:hover{background:var(--bg3)}
+.share-file .sf-ico{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;color:var(--accent)}
+.share-file .sf-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.share-file .sf-meta{color:var(--fg3);font-size:12px;flex-shrink:0}
+.share-preview{margin-top:6px;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--bg2);margin-bottom:14px}
+.share-preview img,.share-preview video{max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px}
+.share-preview pre{margin:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:60vh;overflow:auto}
+
 /* ===== 主界面 ===== */
 #appView{display:flex;flex-direction:column;min-height:100vh}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;height:var(--topbar-h);padding:0 16px;background:var(--bg2);border-bottom:1px solid var(--border)}
@@ -271,6 +284,19 @@ svg{display:block}
   </div>
 </div>
 
+<!-- 分享预览视图（?share=分享码） -->
+<div id="shareView" class="hidden">
+  <div class="share-card">
+    <div class="login-logo"><span class="logo-ico">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    </span>文件分享</div>
+    <div class="login-sub" id="shareSub">加载中…</div>
+    <div class="share-files" id="shareFiles"></div>
+    <div class="share-preview hidden" id="sharePreview"></div>
+    <div class="login-foot"><a href="/" style="color:var(--fg3);text-decoration:none">← 返回主页</a></div>
+  </div>
+</div>
+
 <!-- 主应用 -->
 <div id="appView" class="hidden">
   <header class="topbar">
@@ -331,6 +357,7 @@ svg{display:block}
     <div class="batchbar hidden" id="batchBar">
       <b id="batchCount"></b> 已选择
       <div style="flex:1"></div>
+      <button class="btn primary sm" id="batchShareBtn">创建分享</button>
       <button class="btn danger sm" id="batchDeleteBtn">批量删除</button>
       <button class="btn sm" id="batchClearBtn">取消选择</button>
     </div>
@@ -409,6 +436,7 @@ svg{display:block}
       <button data-tab="account" class="on">账号</button>
       <button data-tab="channels">上传渠道</button>
       <button data-tab="upcodes">上传码</button>
+      <button data-tab="shares">分享链接</button>
     </div>
     <div class="modal-body">
       <div id="tabAccount">
@@ -455,6 +483,13 @@ svg{display:block}
           <div id="upCodesList"><div class="hint">加载中…</div></div>
         </div>
       </div>
+      <div id="tabShares" class="hidden">
+        <div class="setting-section">
+          <h4>已创建的分享链接</h4>
+          <div id="sharesList"><div class="hint">加载中…</div></div>
+          <div class="hint">创建方式：回到文件页勾选文件，在批量操作栏点「创建分享」。同一分享码可重复创建以追加文件；删除后原链接立即失效。</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -474,6 +509,32 @@ svg{display:block}
         </div>
         <div class="hint" id="qrMeta" style="text-align:center"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- 创建分享弹窗 -->
+<div class="modal-mask hidden" id="shareModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mt">创建分享链接</div><button class="iconbtn" data-close="shareModal">✕</button></div>
+    <div class="modal-body">
+      <div id="shareFormArea">
+        <div class="field" style="margin-bottom:10px"><label>已选文件</label><div id="shareSelInfo" style="font-size:13px;color:var(--fg2)"></div></div>
+        <div class="row2">
+          <div class="field"><label>自定义分享码（链接中的关键词）</label><input id="shCode" placeholder="如：app、photos2026"></div>
+          <div class="field"><label>有效期</label><select id="shTtl"><option value="0">永久</option><option value="24">24 小时</option><option value="168">7 天</option><option value="720">30 天</option></select></div>
+        </div>
+      </div>
+      <div id="shareDoneArea" class="hidden">
+        <div class="code-chip" id="shareLink" style="display:block;word-break:break-all;text-align:center;margin-bottom:8px"></div>
+        <div class="hint" id="shareDoneMeta" style="text-align:center"></div>
+      </div>
+      <div class="hint">链接格式：https://域名/?share=分享码。同一分享码重复创建会追加文件（不会覆盖）；访客打开链接可在线预览图片/视频/音频/文本或下载，无需登录。</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="shareCopyBtn" style="display:none">复制链接</button>
+      <button class="btn" data-close="shareModal">关闭</button>
+      <button class="btn primary" id="shConfirmBtn">创建分享</button>
     </div>
   </div>
 </div>
@@ -657,6 +718,9 @@ async function boot(){
   // 访客上传模式：短链 ?up=<上传码>，优先于管理员登录流程
   const upCode = new URLSearchParams(location.search).get('up');
   if (upCode !== null) { showGuest(upCode.trim()); return; }
+  // 分享预览模式：短链 ?share=<分享码>，优先于管理员登录流程
+  const shareCode = new URLSearchParams(location.search).get('share');
+  if (shareCode !== null) { showSharePage(shareCode.trim()); return; }
   let sc = null;
   try { sc = await apiJson('/api/auth/sessionCheck'); } catch {}
   state.adminConfigured = sc ? !!sc.adminRequired : true;
@@ -764,6 +828,138 @@ async function apiRaw(url){
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.text();
 }
+
+/* ================= 分享预览页（?share=分享码） ================= */
+const SHARE_TEXT_EXTS = ['txt','md','json','js','ts','css','html','xml','yml','yaml','py','sh','log','ini','csv','conf','sql','java','c','cpp','go','rs'];
+function shareCategory(name, type){
+  const t = String(type || '');
+  if (t.startsWith('image/')) return 'image';
+  if (t.startsWith('video/')) return 'video';
+  if (t.startsWith('audio/')) return 'audio';
+  if (t.startsWith('text/')) return 'text';
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  return SHARE_TEXT_EXTS.includes(ext) ? 'text' : 'other';
+}
+let shareData = null;
+async function showSharePage(code){
+  $('#appView').classList.add('hidden');
+  $('#loginView').classList.add('hidden');
+  $('#guestView').classList.add('hidden');
+  $('#shareView').classList.remove('hidden');
+  $('#sharePreview').classList.add('hidden');
+  $('#shareFiles').innerHTML = '';
+  if (!code) { $('#shareSub').textContent = '分享链接无效'; return; }
+  try {
+    const d = await fetch('/api/public/shareInfo?code=' + encodeURIComponent(code)).then(r => r.json());
+    if (!d.valid) { $('#shareSub').textContent = d.message || '分享不存在或已过期'; return; }
+    shareData = d;
+    $('#shareSub').textContent = (d.note ? d.note + ' · ' : '') + `共 ${d.files.length} 个文件` + (d.expiry ? '，有效期至 ' + new Date(d.expiry).toLocaleString() : '');
+    $('#shareFiles').innerHTML = d.files.length ? d.files.map((f, i) => {
+      return `<div class="share-file" data-idx="${i}">
+        <span class="sf-ico">${typeIcon(f.name, f.type)}</span>
+        <span class="sf-nm" title="${esc(f.name)}">${esc(f.name)}</span>
+        <span class="sf-meta">${fmtSize(f.size)} · ${fmtDate(f.time)}</span>
+      </div>`;
+    }).join('') : '<div class="hint">分享内暂无有效文件。</div>';
+  } catch { $('#shareSub').textContent = '网络错误，请刷新重试'; }
+}
+$('#shareFiles').addEventListener('click', async e => {
+  const card = e.target.closest('[data-idx]');
+  if (!card || !shareData) return;
+  const f = shareData.files[Number(card.dataset.idx)];
+  const c = shareCategory(f.name, f.type);
+  const pv = $('#sharePreview');
+  const url = '/file/' + encId(f.id);
+  pv.classList.remove('hidden');
+  pv.innerHTML = '<div class="spin"></div>';
+  if (c === 'image') {
+    pv.innerHTML = `<img src="${url}" alt="" onclick="window.open('${url}','_blank')" style="cursor:zoom-in">`;
+  } else if (c === 'video') {
+    pv.innerHTML = `<video src="${url}" controls autoplay></video>`;
+  } else if (c === 'audio') {
+    pv.innerHTML = `<audio src="${url}" controls autoplay style="width:100%"></audio>`;
+  } else if (c === 'text') {
+    try {
+      const txt = await fetch(url).then(r => r.text());
+      const shown = txt.length > 200000 ? txt.slice(0, 200000) + '\n…（内容过长已截断）' : txt;
+      pv.innerHTML = `<pre>${esc(shown)}</pre><div style="text-align:center;margin-top:8px"><a class="btn sm" href="${url}" target="_blank" style="text-decoration:none">新窗口打开</a></div>`;
+    } catch { pv.innerHTML = '<div class="hint">文本加载失败。</div>'; }
+  } else {
+    pv.innerHTML = `<div style="text-align:center;padding:18px 0"><div class="hint">该类型暂不支持在线预览</div><a class="btn primary sm" href="${url}" download="${esc(f.name)}" style="display:inline-block;margin-top:8px;text-decoration:none">下载文件</a></div>`;
+  }
+});
+
+/* ================= 创建分享链接（批量操作） ================= */
+$('#batchShareBtn').addEventListener('click', () => {
+  const ids = [...state.selection];
+  if (!ids.length) { toast('请先勾选文件', true); return; }
+  $('#shareFormArea').classList.remove('hidden');
+  $('#shareDoneArea').classList.add('hidden');
+  $('#shareCopyBtn').style.display = 'none';
+  $('#shareSelInfo').textContent = `已选择 ${ids.length} 个文件`;
+  $('#shCode').value = '';
+  openModal('shareModal');
+});
+$('#shConfirmBtn').addEventListener('click', async () => {
+  const code = $('#shCode').value.trim();
+  if (!code) { toast('请输入自定义分享码', true); return; }
+  const ids = [...state.selection];
+  const btn = $('#shConfirmBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const d = await apiJson('/api/manage/shares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, fileIds: ids, ttlHours: Number($('#shTtl').value) }) });
+    if (!d.success) throw new Error(d.message || '创建失败');
+    const link = location.origin + '/?share=' + encodeURIComponent(code);
+    $('#shareFormArea').classList.add('hidden');
+    $('#shareDoneArea').classList.remove('hidden');
+    $('#shareLink').textContent = link;
+    $('#shareDoneMeta').textContent = `分享码「${code}」现包含 ${d.code.fileIds.length} 个文件` + (d.code.expiry ? '，有效期至 ' + new Date(d.code.expiry).toLocaleString() : '');
+    $('#shareCopyBtn').style.display = '';
+    $('#shareCopyBtn').dataset.link = link;
+    state.selection.clear();
+    renderContent();
+    renderBatch();
+    toast('分享链接已创建');
+  } catch (err) { toast(err.message, true); }
+  btn.disabled = false;
+});
+$('#shareCopyBtn').addEventListener('click', e => { if (e.target.dataset.link) copyText(e.target.dataset.link); });
+
+/* ================= 分享链接管理（设置） ================= */
+async function loadShares(){
+  try {
+    const d = await apiJson('/api/manage/shares');
+    const codes = d.codes || [];
+    const box = $('#sharesList');
+    if (!codes.length) { box.innerHTML = '<div class="hint">还没有分享链接。回到文件页，勾选文件后点「创建分享」即可。</div>'; return; }
+    box.innerHTML = codes.map(c => {
+      const expired = c.expiry && c.expiry < Date.now();
+      const link = location.origin + '/?share=' + encodeURIComponent(c.code);
+      return `<div class="upcode-row">
+        <span class="cd">${esc(c.code)}</span>
+        <span style="color:var(--fg3)">${c.fileIds.length} 个文件 · ${expired ? '<span style="color:var(--danger)">已过期</span>' : TTL_TEXT(c.ttlHours)}</span>
+        <button class="btn sm" data-sh-open="${esc(c.code)}">打开</button>
+        <button class="btn sm" data-sh-copy="${esc(link)}">复制</button>
+        <button class="btn danger sm" data-sh-del="${esc(c.code)}">删除</button>
+      </div>`;
+    }).join('');
+  } catch (err) { $('#sharesList').innerHTML = '<div class="hint">加载失败：' + esc(err.message) + '</div>'; }
+}
+$('#sharesList').addEventListener('click', e => {
+  const open = e.target.closest('[data-sh-open]');
+  if (open) { window.open('/?share=' + encodeURIComponent(open.dataset.shOpen), '_blank'); return; }
+  const cp = e.target.closest('[data-sh-copy]');
+  if (cp) { copyText(cp.dataset.shCopy); return; }
+  const del = e.target.closest('[data-sh-del]');
+  if (del) confirmBox('删除分享链接', '删除分享码「' + del.dataset.shDel + '」？删除后原链接立即失效。', async () => {
+    try {
+      await apiJson('/api/manage/shares?code=' + encodeURIComponent(del.dataset.shDel), { method: 'DELETE' });
+      toast('已删除');
+      loadShares();
+    } catch (err) { toast('删除失败：' + err.message, true); }
+  });
+});
 function showLogin(msg){
   $('#appView').classList.add('hidden');
   $('#loginView').classList.remove('hidden');
@@ -1558,7 +1754,9 @@ $$('.tabs button').forEach(b => b.addEventListener('click', () => {
   $('#tabAccount').classList.toggle('hidden', b.dataset.tab !== 'account');
   $('#tabChannels').classList.toggle('hidden', b.dataset.tab !== 'channels');
   $('#tabUpcodes').classList.toggle('hidden', b.dataset.tab !== 'upcodes');
+  $('#tabShares').classList.toggle('hidden', b.dataset.tab !== 'shares');
   if (b.dataset.tab === 'upcodes') loadUpCodes();
+  if (b.dataset.tab === 'shares') loadShares();
 }));
 
 /* ================= 上传码（扫码上传） ================= */
